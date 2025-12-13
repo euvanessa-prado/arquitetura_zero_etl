@@ -1,0 +1,101 @@
+# ===================
+# Python
+# ===================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+eggs/
+*.egg-info/
+*.egg
+venv/
+.venv/
+ENV/
+
+# ===================
+# Terraform
+# ===================
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ===================
+# IDE & Editors
+# ===================
+.vscode/
+.kiro/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ===================
+# Secrets & Credentials
+# ===================
+.env
+.env.*
+secrets.json
+credentials.json
+*.pem
+*.key
+.aws/
+
+# ===================
+# Data Files
+# ===================
+data/
+*.csv
+*.parquet
+*.xlsx
+*.xls
+
+# ===================
+# Logs
+# ===================
+*.log
+logs/
+
+# ===================
+# DBT
+# ===================
+code/dbt/*/target/
+code/dbt/*/dbt_packages/
+code/dbt/*/logs/
+
+# ===================
+# Airflow
+# ===================
+airflow.db
+airflow-webserver.pid
+airflow-scheduler.pid
+code/dbt/airflow_dags/__pycache__/
+
+# ===================
+# Docker
+# ===================
+metabase/pg_data/
+
+# ===================
+# OS
+# ===================
+.DS_Store
+Thumbs.db
+
+# ===================
+# Testing
+# ===================
+.pytest_cache/
+.coverage
+htmlcov/

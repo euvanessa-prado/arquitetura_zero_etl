@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: transactional_movielens
+    database: movielens_zeroetl
+    schema: movielens_database
+    tables:
+      - name: links
+      - name: movies
+      - name: ratings
+      - name: tags
