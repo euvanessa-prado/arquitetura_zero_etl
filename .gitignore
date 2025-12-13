@@ -55,7 +55,7 @@ credentials.json
 # ===================
 # Data Files
 # ===================
-data/
+data/ml-latest-small
 *.csv
 *.parquet
 *.xlsx
