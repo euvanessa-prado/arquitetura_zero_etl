@@ -1,269 +1,151 @@
-# Arquitetura Zero-ETL AWS
+# 🚀 Arquitetura Zero-ETL AWS
 
-Projeto de Modern Data Stack na AWS com integracao Zero-ETL, orquestracao com Airflow, transformacoes com DBT e analise com Metabase.
+[![AWS](https://img.shields.io/badge/AWS-Cloud-orange?logo=amazon-aws)](https://aws.amazon.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-IaC-purple?logo=terraform)](https://www.terraform.io/)
+[![dbt](https://img.shields.io/badge/dbt-Transform-green?logo=dbt)](https://www.getdbt.com/)
+[![Airflow](https://img.shields.io/badge/Airflow-Orchestration-blue?logo=apache-airflow)](https://airflow.apache.org/)
 
-## Visao Geral
+Pipeline de dados moderno na AWS utilizando **Zero-ETL** para replicação em tempo real do Aurora PostgreSQL para Redshift, com transformações via **dbt** e orquestração com **Airflow (MWAA)**.
+
+## 📋 Sobre o Projeto
+
+Este projeto demonstra uma arquitetura **Modern Data Stack** completa na AWS, eliminando a necessidade de pipelines ETL tradicionais através da integração Zero-ETL. Os dados são replicados automaticamente do banco transacional (Aurora) para o Data Warehouse (Redshift), onde são transformados com dbt para análises.
+
+### Dataset
+Utiliza o **MovieLens Dataset** com:
+- 🎬 9.742 filmes
+- ⭐ 100.836 avaliações
+- 🏷️ 3.683 tags
+- 👥 610 usuários
+
+## 🏗️ Arquitetura
 
 ```
-+-------------------------------------------------------------+
-|                      AWS Cloud                               |
-|                                                              |
-|  S3 (Raw) -> RDS Aurora -> Zero-ETL -> Redshift             |
-|                                                              |
-|  MWAA (Airflow) -> DBT -> Transformacoes                    |
-|                                                              |
-|  Metabase -> Dashboards & Analytics                         |
-+-------------------------------------------------------------+
+┌─────────────────────────────────────────────────────────────────────┐
+│                           AWS Cloud                                  │
+│                                                                      │
+│   ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌────────┐ │
+│   │    S3    │ ───► │  Aurora  │ ───► │ Redshift │ ───► │  dbt   │ │
+│   │  (Raw)   │      │PostgreSQL│      │(Zero-ETL)│      │        │ │
+│   └──────────┘      └──────────┘      └──────────┘      └────────┘ │
+│                                                              │      │
+│   ┌──────────┐                                               ▼      │
+│   │   MWAA   │ ◄─────────────────────────────────────────────┘      │
+│   │(Airflow) │                                                      │
+│   └──────────┘                                                      │
+│                                                                      │
+│   ┌──────────┐      ┌──────────┐      ┌──────────┐                  │
+│   │Terraform │      │    EC2   │      │ Metabase │                  │
+│   │  (IaC)   │      │  (SSM)   │      │(Analytics)│                 │
+│   └──────────┘      └──────────┘      └──────────┘                  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Componentes Principais
+## 🛠️ Tecnologias
 
-| Componente | Funcao |
-|-----------|--------|
-| RDS Aurora PostgreSQL | Banco transacional |
-| Amazon Redshift | Data Warehouse |
-| Zero-ETL | Replicacao em tempo real |
-| MWAA (Airflow) | Orquestracao de pipelines |
-| DBT | Transformacoes de dados |
-| Metabase | Visualizacao e analise |
-| S3 | Data Lake |
-| Terraform | Infrastructure as Code |
+| Componente | Tecnologia | Função |
+|------------|------------|--------|
+| Banco Transacional | Aurora PostgreSQL | Dados de origem |
+| Data Warehouse | Amazon Redshift | Armazenamento analítico |
+| Replicação | Zero-ETL | Sync em tempo real |
+| Transformação | dbt | Modelagem de dados |
+| Orquestração | MWAA (Airflow) | Agendamento de pipelines |
+| Visualização | Metabase | Dashboards |
+| Data Lake | Amazon S3 | Armazenamento raw |
+| Infraestrutura | Terraform | Infrastructure as Code |
+| Execução | EC2 + SSM | Scripts remotos |
 
-## Quick Start
-
-### Pre-requisitos
-- Conta AWS com permissoes de administrador
-- Terraform >= 1.0
-- Python >= 3.8
-- AWS CLI configurado
-- Git
-
-### 1. Clone o repositorio
-```bash
-git clone https://github.com/seu-usuario/arquitetura-zero-etl-aws.git
-cd arquitetura-zero-etl-aws
-```
-
-### 2. Configure as variaveis
-```bash
-cd terraform/infra
-cp envs/develop.tfvars.example envs/develop.tfvars
-# Edite com seus valores
-```
-
-### 3. Crie o bucket S3 para o Terraform State
-```bash
-# O bucket do backend S3 precisa existir ANTES do terraform init
-# Isso e necessario porque o Terraform precisa do bucket para armazenar o state
-# antes de criar qualquer recurso (problema "ovo e galinha")
-aws s3 mb s3://terraform-state-data-handson-mds-dev --region us-east-1
-```
-
-### 4. Provisione a infraestrutura
-```bash
-terraform init -backend-config="backends/develop.hcl"
-terraform plan -var-file=envs/develop.tfvars
-terraform apply -var-file=envs/develop.tfvars
-```
-
-### 5. Executar scripts no EC2 via SSM
-
-O RDS esta em subnet privada, entao os scripts devem ser executados a partir do EC2.
-
-```bash
-# 1. Obter o ID da instancia EC2
-# - describe-instances: lista instancias EC2
-# - filters: filtra por nome da tag e estado "running"
-# - query: extrai apenas o InstanceId do JSON de resposta
-# - output text: retorna texto puro (sem aspas)
-INSTANCE_ID=$(aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=data-handson-mds-ec2-dev" "Name=instance-state-name,Values=running" \
-  --query 'Reservations[0].Instances[0].InstanceId' \
-  --output text \
-  --profile zero-etl-project)
-
-# 2. Converter o script local para base64
-# - cat: le o conteudo do arquivo
-# - base64 -w 0: codifica em base64 sem quebras de linha
-# Isso permite enviar o script como string via SSM
-SCRIPT_CONTENT=$(cat code/insert_data_postgres/test_connection.py | base64 -w 0)
-
-# 3. Enviar e executar o script no EC2 via SSM
-# - send-command: envia comando para execucao remota
-# - instance-ids: ID da instancia EC2 destino
-# - document-name: AWS-RunShellScript permite executar comandos shell
-# - parameters commands: lista de comandos a executar
-#   - echo '$SCRIPT_CONTENT' | base64 -d: decodifica o base64
-#   - > /tmp/script.py: salva o script no EC2
-#   - python3 /tmp/script.py: executa o script
-# - query Command.CommandId: retorna o ID do comando para consultar depois
-aws ssm send-command \
-  --instance-ids "$INSTANCE_ID" \
-  --document-name "AWS-RunShellScript" \
-  --parameters "commands=[\"echo '$SCRIPT_CONTENT' | base64 -d > /tmp/script.py && python3 /tmp/script.py\"]" \
-  --profile zero-etl-project \
-  --region us-east-1 \
-  --query 'Command.CommandId' \
-  --output text
-
-# 4. Verificar resultado da execucao
-# - get-command-invocation: consulta o resultado de um comando enviado
-# - command-id: ID retornado pelo send-command
-# - instance-id: instancia onde o comando foi executado
-# - query StandardOutputContent: retorna apenas o stdout do comando
-# Substitua COMMAND_ID pelo valor retornado no passo anterior
-aws ssm get-command-invocation \
-  --command-id "COMMAND_ID" \
-  --instance-id "$INSTANCE_ID" \
-  --profile zero-etl-project \
-  --region us-east-1 \
-  --query 'StandardOutputContent' \
-  --output text
-```
-
-Ou conecte interativamente via SSM:
-```bash
-# start-session: abre um terminal interativo no EC2
-# Nao precisa de SSH, chave privada ou porta 22 aberta
-# Usa o SSM Agent instalado na instancia
-aws ssm start-session --target $INSTANCE_ID --profile zero-etl-project --region us-east-1
-```
-
-### 6. Acesse os servicos
-- Metabase: http://localhost:3000
-- Airflow (MWAA): AWS Console -> MWAA
-- Redshift: AWS Console -> Redshift
-
----
-
-## Estrutura do Projeto
+## 📁 Estrutura do Projeto
 
 ```
 arquitetura-zero-etl-aws/
-|
-+-- README.md
-+-- .gitignore
-|
-+-- terraform/
-|   +-- infra/
-|       +-- main.tf
-|       +-- variables.tf
-|       +-- terraform.tf
-|       +-- backends/
-|       +-- envs/
-|       +-- modules/
-|           +-- vpc/
-|           +-- rds/
-|           +-- redshift/
-|           +-- s3/
-|           +-- mwaa/
-|           +-- ec2/
-|
-+-- code/
-|   +-- dbt/
-|   |   +-- airflow_dags/
-|   |   +-- movielens_redshift/
-|   +-- insert_data_postgres/
-|       +-- script-python-insert-csv-postgres.py
-|       +-- test_connection.py
-|       +-- create_database.py
-|       +-- upload_to_s3.py
-|
-+-- data/
-|   +-- ml-latest-small/
-|       +-- ratings.csv
-|       +-- tags.csv
-|       +-- movies.csv
-|       +-- links.csv
-|
-+-- metabase/
-    +-- docker-compose.yml
+├── terraform/infra/          # Infraestrutura como código
+│   ├── modules/              # Módulos Terraform (VPC, RDS, Redshift, etc)
+│   ├── envs/                 # Variáveis por ambiente
+│   └── backends/             # Configuração do state
+├── code/
+│   ├── dbt/                  # Projeto dbt
+│   │   ├── airflow_dags/     # DAGs do Airflow
+│   │   └── movielens_redshift/  # Modelos dbt
+│   └── insert_data_postgres/ # Scripts de carga
+├── data/ml-latest-small/     # Dataset MovieLens
+└── metabase/                 # Docker Compose do Metabase
 ```
+
+## 🚀 Quick Start
+
+### Pré-requisitos
+- AWS CLI configurado
+- Terraform >= 1.0
+- Python >= 3.8
+- Docker (para Metabase)
+
+### 1. Clone o repositório
+```bash
+git clone https://github.com/euvanessa-prado/arquitetura_zero_etl.git
+cd arquitetura_zero_etl
+```
+
+### 2. Crie o bucket para Terraform State
+```bash
+aws s3 mb s3://terraform-state-data-handson-mds-dev --region us-east-1
+```
+
+### 3. Provisione a infraestrutura
+```bash
+cd terraform/infra
+terraform init -backend-config="backends/develop.hcl"
+terraform apply -var-file=envs/develop.tfvars
+```
+
+### 4. Carregue os dados
+```bash
+# Upload CSVs para S3
+python code/insert_data_postgres/upload_to_s3.py
+
+# Inserir no Aurora (via EC2/SSM)
+python code/insert_data_postgres/insert_postgres_simple.py
+```
+
+### 5. Verifique a replicação
+```bash
+# Verificar dados no Redshift (após Zero-ETL replicar)
+python code/insert_data_postgres/test_redshift_connection.py
+```
+
+## 📊 Fluxo de Dados
+
+1. **Ingestão**: CSVs do MovieLens são enviados para o S3
+2. **Carga**: Dados são inseridos no Aurora PostgreSQL
+3. **Replicação**: Zero-ETL replica automaticamente para Redshift
+4. **Transformação**: dbt cria modelos analíticos
+5. **Visualização**: Metabase consome os dados transformados
+
+## 🔐 Segurança
+
+- ✅ Credenciais no AWS Secrets Manager
+- ✅ RDS/Redshift em subnets privadas
+- ✅ Encryption em repouso
+- ✅ Acesso via SSM (sem SSH exposto)
+- ✅ Dados sensíveis removidos do código
+
+## 📚 Documentação
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Detalhes da arquitetura
+- [code/insert_data_postgres/README.md](code/insert_data_postgres/README.md) - Guia de carga de dados
+
+## 🔗 Links Úteis
+
+- [AWS Zero-ETL](https://docs.aws.amazon.com/redshift/latest/mgmt/zero-etl.html)
+- [dbt Documentation](https://docs.getdbt.com/)
+- [MWAA Documentation](https://docs.aws.amazon.com/mwaa/)
+- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [MovieLens Dataset](https://grouplens.org/datasets/movielens/)
+
+## 📝 Licença
+
+Este projeto é para fins educacionais e de demonstração.
 
 ---
 
-## Configuracao Detalhada
-
-### Terraform
-```bash
-cd terraform/infra
-
-# Inicializar
-terraform init -backend-config="backends/develop.hcl"
-
-# Planejar
-terraform plan -var-file=envs/develop.tfvars
-
-# Aplicar
-terraform apply -var-file=envs/develop.tfvars
-
-# Destruir
-terraform destroy -var-file=envs/develop.tfvars
-```
-
-### DBT
-```bash
-cd code/dbt/movielens_redshift
-
-# Instalar dependencias
-dbt deps
-
-# Executar modelos
-dbt run
-
-# Executar testes
-dbt test
-
-# Gerar documentacao
-dbt docs generate
-```
-
-### Airflow (MWAA)
-- Acesse via AWS Console
-- DAGs estao em code/dbt/airflow_dags/
-- Configuracao em code/dbt/airflow_dags/requirements.txt
-
-### Metabase
-```bash
-cd metabase
-
-# Iniciar
-docker-compose up -d
-
-# Parar
-docker-compose down
-
-# Logs
-docker-compose logs -f metabase
-```
-
-## Dataset
-
-Usando MovieLens Small Dataset:
-- 100,000 ratings
-- 3,600 movies
-- 6,000 users
-- 13,000 tags
-
-## Seguranca
-
-Implementado:
-- Senhas geradas aleatoriamente
-- Credenciais no AWS Secrets Manager
-- Encryption em repouso (Redshift)
-- .gitignore para arquivos sensiveis
-
-Recomendacoes para producao:
-- Mover RDS/Redshift para subnets privadas
-- Usar VPC Endpoints
-- Implementar Bastion Host
-- Adicionar CloudTrail e CloudWatch
-- Configurar MFA
-
-## Documentacao
-
-- AWS RDS: https://docs.aws.amazon.com/rds/
-- Amazon Redshift: https://docs.aws.amazon.com/redshift/
-- AWS MWAA: https://docs.aws.amazon.com/mwaa/
-- DBT Documentation: https://docs.getdbt.com/
-- Terraform AWS Provider: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+Desenvolvido com ☕ por [Vanessa Prado](https://github.com/euvanessa-prado)
