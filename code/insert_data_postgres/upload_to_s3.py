@@ -1,3 +1,17 @@
+###############################################################################
+# Upload dos arquivos CSV do MovieLens para o S3
+#
+# Faz parte do pipeline Zero-ETL:
+#   CSV (local) → S3 → Aurora PostgreSQL → Zero-ETL → Redshift → dbt
+#
+# Uso: python upload_to_s3.py
+# Requer: AWS profile 'zero-etl-project' ou IAM Role
+#
+# IMPORTANTE: O bucket S3 deve estar criado antes de executar este script!
+#   Bucket: data-handson-mds-raw-dev
+#   Criado via Terraform em: terraform/infra/modules/s3
+###############################################################################
+
 import boto3
 import os
 import sys

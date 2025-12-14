@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+###############################################################################
+# Insere dados do S3 no Aurora PostgreSQL (versão simplificada)
+#
+# Faz parte do pipeline Zero-ETL:
+#   CSV (local) → S3 → Aurora PostgreSQL → Zero-ETL → Redshift → dbt
+#
+# Uso: python insert_postgres_simple.py
+# Requer: AWS profile 'zero-etl-project' ou IAM Role
+#
+# IMPORTANTE: Aurora e S3 devem estar criados antes de executar!
+#   Aurora: transactional.movielens_database
+#   S3: data-handson-mds-raw-dev/movielens/
+#   Criados via Terraform em: terraform/infra/modules/rds e s3
+#   Credenciais em: Secrets Manager (datahandsonmds-database-dev)
+###############################################################################
+
 import json
 import boto3
 import pandas as pd

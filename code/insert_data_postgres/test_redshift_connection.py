@@ -1,3 +1,19 @@
+###############################################################################
+# Testa conexão com o Redshift e lista tabelas replicadas via Zero-ETL
+#
+# Faz parte do pipeline Zero-ETL:
+#   CSV (local) → S3 → Aurora PostgreSQL → Zero-ETL → Redshift → dbt
+#
+# Uso: python test_redshift_connection.py
+# Requer: AWS profile 'zero-etl-project' ou IAM Role
+#
+# IMPORTANTE: O cluster Redshift deve estar criado antes de executar!
+#   Cluster: data-handson-mds
+#   Database: movielens_zeroetl (criado pela integração Zero-ETL)
+#   Criado via Terraform em: terraform/infra/modules/redshift
+#   Credenciais em: Secrets Manager (data-handson-mds-credentials)
+###############################################################################
+
 import boto3
 import json
 import sys

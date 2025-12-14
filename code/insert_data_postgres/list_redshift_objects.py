@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+###############################################################################
+# Lista todos os objetos do Redshift (databases, schemas, tabelas, views)
+#
+# Faz parte do pipeline Zero-ETL:
+#   CSV (local) → S3 → Aurora PostgreSQL → Zero-ETL → Redshift → dbt
+#
+# Uso: python list_redshift_objects.py
+# Requer: AWS profile 'zero-etl-project' ou IAM Role
+#
+# IMPORTANTE: O cluster Redshift deve estar criado antes de executar!
+#   Cluster: data-handson-mds
+#   Criado via Terraform em: terraform/infra/modules/redshift
+#   Credenciais em: Secrets Manager (data-handson-mds-credentials)
+###############################################################################
+
 import json
 import boto3
 import redshift_connector

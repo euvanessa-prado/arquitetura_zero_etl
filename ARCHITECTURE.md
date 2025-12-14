@@ -17,9 +17,9 @@ Tabelas:
 - links: 9,742 registros
 
 Credenciais:
-- Host: transactional.cluster-c29gca8kizzb.us-east-1.rds.amazonaws.com
+- Host: [AURORA_CLUSTER_ENDPOINT]
 - Port: 5432
-- User: datahandsonmds
+- User: [DB_USER]
 - Password: (Secrets Manager: datahandsonmds-database-dev)
 
 ### 2. Replicação - Zero-ETL Integration
@@ -43,9 +43,9 @@ Node Type: ra3.large
 Cluster Type: single-node
 
 Credenciais:
-- Host: data-handson-mds.cqkkm91pue7d.us-east-1.redshift.amazonaws.com
+- Host: [REDSHIFT_CLUSTER_ENDPOINT]
 - Port: 5439
-- User: admin
+- User: [REDSHIFT_USER]
 - Password: (Secrets Manager: data-handson-mds-credentials)
 
 Databases:
@@ -111,17 +111,17 @@ Redshift (analytics_movie_insights)
 
 ### Aurora PostgreSQL
 Secret: datahandsonmds-database-dev
-- username: datahandsonmds
-- password: (gerada automaticamente)
-- host: transactional.cluster-c29gca8kizzb.us-east-1.rds.amazonaws.com
+- username: [DB_USER]
+- password: (Secrets Manager)
+- host: [AURORA_CLUSTER_ENDPOINT]
 - port: 5432
 - dbname: transactional
 
 ### Redshift
 Secret: data-handson-mds-credentials
-- username: admin
-- password: dAjEdLPc9jFP2iNC
-- host: data-handson-mds.cqkkm91pue7d.us-east-1.redshift.amazonaws.com
+- username: [REDSHIFT_USER]
+- password: (Secrets Manager)
+- host: [REDSHIFT_CLUSTER_ENDPOINT]
 - port: 5439
 - dbname: datahandsonmds
 

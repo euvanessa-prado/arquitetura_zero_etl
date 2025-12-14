@@ -1,238 +1,196 @@
-# ETL - Inserção de Dados no PostgreSQL Aurora
+# ETL - MovieLens para Aurora PostgreSQL
 
-Este diretório contém scripts para fazer upload dos dados MovieLens para S3 e inserir no PostgreSQL Aurora.
-
-## Arquitetura
-
-Os dados seguem o seguinte fluxo:
-
-1. Arquivos CSV locais (MovieLens)
-2. Amazon S3 (data-handson-mds-raw-dev)
-3. EC2 (execução via AWS Systems Manager)
-4. Aurora PostgreSQL (banco transactional)
-5. Schema movielens_database
+Este guia explica como carregar os dados do MovieLens no pipeline Zero-ETL.
 
 ## Pré-requisitos
 
-- AWS CLI configurado com profile zero-etl-project
-- Acesso ao AWS Secrets Manager para credenciais do Aurora
-- EC2 com SSM Agent habilitado
-- Python 3.8 ou superior
-- Dependências: boto3, pandas, sqlalchemy, psycopg2-binary
+Antes de começar, você precisa ter:
 
-## Scripts Disponíveis
+1. **Infraestrutura AWS criada** via Terraform (`terraform/infra/`)
+2. **AWS CLI configurado** com o profile `zero-etl-project`
+3. **Python 3.8+** instalado
+4. **Dependências Python** instaladas:
+   ```bash
+   pip install boto3 pandas sqlalchemy psycopg2-binary redshift-connector
+   ```
 
-### upload_to_s3.py
+## Passo a Passo
 
-Realiza o upload dos arquivos CSV do MovieLens para o Amazon S3.
+### Passo 1: Enviar os arquivos CSV para o S3
 
-Execução:
+Este script pega os arquivos CSV do MovieLens (que estão em `data/ml-latest-small/`) e envia para o bucket S3.
+
 ```bash
-python upload_to_s3.py
+python code/insert_data_postgres/upload_to_s3.py
 ```
 
-Funcionalidade:
-- Lê arquivos CSV de data/ml-latest-small/
-- Faz upload para s3://data-handson-mds-raw-dev/movielens/
-- Organiza arquivos por tipo: ratings, tags, movies, links
+**O que acontece:**
+- Os arquivos `ratings.csv`, `movies.csv`, `tags.csv` e `links.csv` são enviados para o S3
+- Destino: `s3://data-handson-mds-raw-dev/movielens/`
 
-### insert_postgres_simple.py
+---
 
-Insere os dados do S3 no Aurora PostgreSQL. Este script deve ser executado na EC2 via AWS Systems Manager, pois o banco está em subnet privada.
+### Passo 2: Criar o database no Aurora
 
-Execução via EC2:
+Este script cria o database `transactional` no Aurora PostgreSQL (se ainda não existir).
+
 ```bash
-aws s3 cp insert_postgres_simple.py s3://data-handson-mds-scripts-dev/ --profile zero-etl-project
+python code/insert_data_postgres/create_database.py
+```
 
+**O que acontece:**
+- Conecta no Aurora usando credenciais do Secrets Manager
+- Cria o database `transactional`
+
+---
+
+### Passo 3: Inserir os dados no Aurora
+
+Este script lê os CSVs do S3 e insere no Aurora PostgreSQL.
+
+> **Nota:** Como o Aurora está em subnet privada, este script deve ser executado na EC2 via SSM (Systems Manager).
+
+**Opção A - Executar localmente (se tiver acesso direto ao Aurora):**
+```bash
+python code/insert_data_postgres/insert_postgres_simple.py
+```
+
+**Opção B - Executar via EC2/SSM:**
+```bash
+# 1. Enviar script para S3
+aws s3 cp code/insert_data_postgres/insert_postgres_simple.py \
+    s3://data-handson-mds-scripts-dev/ --profile zero-etl-project
+
+# 2. Executar na EC2 via SSM (substitua [INSTANCE_ID] pelo ID da sua EC2)
 aws ssm send-command \
   --profile zero-etl-project \
   --region us-east-1 \
-  --instance-ids i-0b84eb1b7f2825d46 \
+  --instance-ids [INSTANCE_ID] \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
-    "/tmp/venv/bin/python -m boto3",
-    "python3 -c \"import boto3; s3=boto3.client('"'"'s3'"'"'); s3.download_file('"'"'data-handson-mds-scripts-dev'"'"', '"'"'insert_postgres_simple.py'"'"', '"'"'/tmp/insert.py'"'"')\"",
-    "/tmp/venv/bin/python /tmp/insert.py"
-  ]' \
-  --query 'Command.CommandId' \
-  --output text
-```
-
-Funcionalidade:
-- Conecta ao Aurora usando credenciais do Secrets Manager
-- Cria schema movielens_database
-- Baixa arquivos CSV do S3
-- Insere dados nas tabelas
-- Adiciona primary keys (necessário para Zero-ETL)
-
-### test_connection.py
-
-Valida a conectividade com o Aurora PostgreSQL.
-
-Execução via EC2:
-```bash
-aws s3 cp test_connection.py s3://data-handson-mds-scripts-dev/ --profile zero-etl-project
-
-aws ssm send-command \
-  --profile zero-etl-project \
-  --region us-east-1 \
-  --instance-ids i-0b84eb1b7f2825d46 \
-  --document-name "AWS-RunShellScript" \
-  --parameters 'commands=[
-    "python3 -c \"import boto3; s3=boto3.client('"'"'s3'"'"'); s3.download_file('"'"'data-handson-mds-scripts-dev'"'"', '"'"'test_connection.py'"'"', '"'"'/tmp/test.py'"'"')\"",
-    "/tmp/venv/bin/python /tmp/test.py"
-  ]' \
-  --query 'Command.CommandId' \
-  --output text
-```
-
-### script-python-insert-csv-postgres.py
-
-Script original com validações adicionais. Oferece mais controle sobre o processo de inserção.
-
-## Procedimento Completo
-
-Passo 1: Upload para S3
-```bash
-python upload_to_s3.py
-```
-
-Passo 2: Preparar EC2 (executar uma única vez)
-```bash
-aws ssm send-command \
-  --profile zero-etl-project \
-  --region us-east-1 \
-  --instance-ids i-0b84eb1b7f2825d46 \
-  --document-name "AWS-RunShellScript" \
-  --parameters 'commands=[
-    "apt-get update",
-    "apt-get install -y python3.12-venv",
-    "python3 -m venv /tmp/venv",
-    "/tmp/venv/bin/pip install boto3 pandas sqlalchemy psycopg2-binary"
-  ]'
-```
-
-Passo 3: Inserir dados no Aurora
-```bash
-aws s3 cp insert_postgres_simple.py s3://data-handson-mds-scripts-dev/ --profile zero-etl-project
-
-aws ssm send-command \
-  --profile zero-etl-project \
-  --region us-east-1 \
-  --instance-ids i-0b84eb1b7f2825d46 \
-  --document-name "AWS-RunShellScript" \
-  --parameters 'commands=[
-    "python3 -c \"import boto3; s3=boto3.client('"'"'s3'"'"'); s3.download_file('"'"'data-handson-mds-scripts-dev'"'"', '"'"'insert_postgres_simple.py'"'"', '"'"'/tmp/insert.py'"'"')\"",
+    "python3 -c \"import boto3; s3=boto3.client('s3'); s3.download_file('data-handson-mds-scripts-dev', 'insert_postgres_simple.py', '/tmp/insert.py')\"",
     "/tmp/venv/bin/python /tmp/insert.py"
   ]'
 ```
 
-## Configuração do Banco de Dados
+**O que acontece:**
+- Cria o schema `movielens_database`
+- Insere os dados nas tabelas: `ratings`, `movies`, `tags`, `links`
+- Adiciona as Primary Keys (necessário para o Zero-ETL funcionar)
 
-Aurora PostgreSQL
+---
 
-- Host: transactional.cluster-c29gca8kizzb.us-east-1.rds.amazonaws.com
-- Port: 5432
-- Database: transactional
-- Schema: movielens_database
-- User: datahandsonmds
-- Credenciais: Armazenadas no AWS Secrets Manager
-
-Tabelas Criadas
-
-- ratings: 100,836 registros
-- tags: 3,683 registros
-- movies: 9,742 registros
-- links: 9,742 registros
-
-Primary Keys
-
-```sql
-ALTER TABLE movielens_database.ratings ADD PRIMARY KEY ("userId", "movieId", "timestamp");
-ALTER TABLE movielens_database.tags ADD PRIMARY KEY ("userId", "movieId", "tag");
-ALTER TABLE movielens_database.movies ADD PRIMARY KEY ("movieId");
-ALTER TABLE movielens_database.links ADD PRIMARY KEY ("movieId");
-```
-
-## Conexão ao Aurora
-
-Via psql
+### Passo 4: Verificar se os dados foram inseridos
 
 ```bash
-aws secretsmanager get-secret-value \
-  --secret-id datahandsonmds-database-dev \
-  --profile zero-etl-project \
-  --query 'SecretString' \
-  --output text | jq -r 'to_entries[] | "\(.key)=\(.value)"'
-
-psql -h transactional.cluster-c29gca8kizzb.us-east-1.rds.amazonaws.com \
-     -U datahandsonmds \
-     -d transactional \
-     -p 5432
+python code/insert_data_postgres/check_tables.py
 ```
 
-Via Python
-
-```python
-import json
-import boto3
-from sqlalchemy import create_engine
-
-secrets = boto3.client('secretsmanager', region_name='us-east-1')
-response = secrets.get_secret_value(SecretId='datahandsonmds-database-dev')
-creds = json.loads(response['SecretString'])
-
-conn_str = f"postgresql://{creds['username']}:{creds['password']}@{creds['host']}:{creds['port']}/transactional"
-engine = create_engine(conn_str)
-
-with engine.connect() as conn:
-    result = conn.execute("SELECT * FROM movielens_database.movies LIMIT 5")
-    for row in result:
-        print(row)
+**Resultado esperado:**
+```
+Tabelas no schema movielens_database:
+----------------------------------------
+  ratings: 100,836 registros
+  tags: 3,683 registros
+  movies: 9,742 registros
+  links: 9,742 registros
 ```
 
-## Próximas Etapas
+---
 
-1. Criar database no Redshift:
-```sql
-CREATE DATABASE analytics_movie_insights;
-```
+### Passo 5: Aguardar a replicação Zero-ETL
 
-2. Configurar Zero-ETL para replicação de dados do Aurora para Redshift
+Após inserir os dados no Aurora, o Zero-ETL replica automaticamente para o Redshift.
 
-3. Executar transformações dbt no Redshift
+- Tempo estimado: 1-5 minutos
+- Você pode acompanhar no console AWS: **RDS > Zero-ETL integrations**
 
-## Resolução de Problemas
+---
 
-Banco em subnet privada
-
-O Aurora está configurado em subnet privada. Use a EC2 (que está na VPC) para executar scripts via AWS Systems Manager.
-
-Módulo Python não encontrado
-
-Instale as dependências no virtualenv:
-```bash
-/tmp/venv/bin/pip install boto3 pandas sqlalchemy psycopg2-binary
-```
-
-Conexão recusada
-
-Verifique:
-- Status do Aurora: aws rds describe-db-clusters --profile zero-etl-project
-- Acesso da EC2 à VPC privada
-- Regras de security group na porta 5432
-
-## Variáveis de Ambiente
+### Passo 6: Verificar os dados no Redshift
 
 ```bash
-export DB_SECRET_NAME="datahandsonmds-database-dev"
-export S3_BUCKET="data-handson-mds-raw-dev"
-export S3_PATH="movielens"
+python code/insert_data_postgres/test_redshift_connection.py
 ```
 
-## Referências
+**O que acontece:**
+- Conecta no Redshift
+- Lista os schemas e tabelas replicadas
+- Mostra a contagem de registros
 
-- MovieLens Dataset: https://grouplens.org/datasets/movielens/
-- AWS Secrets Manager: https://docs.aws.amazon.com/secretsmanager/
-- AWS Systems Manager: https://docs.aws.amazon.com/systems-manager/
-- SQLAlchemy PostgreSQL: https://docs.sqlalchemy.org/en/20/dialects/postgresql.html
+---
+
+### Passo 7: Listar todos os objetos do Redshift (opcional)
+
+```bash
+python code/insert_data_postgres/list_redshift_objects.py
+```
+
+**O que acontece:**
+- Lista todos os databases, schemas, tabelas e views do Redshift
+- Útil para debug e verificação
+
+---
+
+## Resumo dos Scripts
+
+| Script | Função |
+|--------|--------|
+| `upload_to_s3.py` | Envia CSVs locais para o S3 |
+| `create_database.py` | Cria database no Aurora |
+| `insert_postgres_simple.py` | Insere dados do S3 no Aurora |
+| `script-python-insert-csv-postgres.py` | Versão completa com mais validações |
+| `check_tables.py` | Verifica tabelas no Aurora |
+| `test_connection.py` | Testa conexão com Aurora |
+| `test_redshift_connection.py` | Testa conexão com Redshift |
+| `list_redshift_objects.py` | Lista objetos do Redshift |
+
+---
+
+## Fluxo Completo do Pipeline
+
+```
+┌─────────────────┐
+│  CSVs locais    │  data/ml-latest-small/
+└────────┬────────┘
+         │ upload_to_s3.py
+         ▼
+┌─────────────────┐
+│      S3         │  s3://data-handson-mds-raw-dev/movielens/
+└────────┬────────┘
+         │ insert_postgres_simple.py
+         ▼
+┌─────────────────┐
+│ Aurora PostgreSQL│  transactional.movielens_database
+└────────┬────────┘
+         │ Zero-ETL (automático)
+         ▼
+┌─────────────────┐
+│    Redshift     │  movielens_zeroetl.movielens_database
+└────────┬────────┘
+         │ dbt (via MWAA/Airflow)
+         ▼
+┌─────────────────┐
+│    Redshift     │  analytics_movie_insights
+└─────────────────┘
+```
+
+---
+
+## Troubleshooting
+
+### Erro: "Bucket não existe"
+- Verifique se a infraestrutura foi criada via Terraform
+- Execute: `terraform apply -var-file=envs/develop.tfvars`
+
+### Erro: "Conexão recusada" no Aurora
+- O Aurora está em subnet privada
+- Execute os scripts via EC2/SSM ou configure VPN
+
+### Erro: "Database não existe" no Redshift
+- O database `movielens_zeroetl` é criado automaticamente pelo Zero-ETL
+- Aguarde alguns minutos após criar a integração
+
+### Erro: "Tabela não encontrada" no Redshift
+- Verifique se o Zero-ETL está ativo no console AWS
+- As tabelas precisam ter Primary Key no Aurora para serem replicadas

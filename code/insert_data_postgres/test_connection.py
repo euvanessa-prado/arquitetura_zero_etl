@@ -1,3 +1,18 @@
+###############################################################################
+# Testa conexão com o Aurora PostgreSQL
+#
+# Faz parte do pipeline Zero-ETL:
+#   CSV (local) → S3 → Aurora PostgreSQL → Zero-ETL → Redshift → dbt
+#
+# Uso: python test_connection.py
+# Requer: AWS profile 'zero-etl-project' ou IAM Role
+#
+# IMPORTANTE: O Aurora PostgreSQL deve estar criado antes de executar!
+#   Cluster: transactional
+#   Criado via Terraform em: terraform/infra/modules/rds
+#   Credenciais em: Secrets Manager (datahandsonmds-database-dev)
+###############################################################################
+
 import boto3
 import json
 import os

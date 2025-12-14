@@ -1,3 +1,0 @@
-## EXECUTAR NO REDSHIFT ANTES DE RODAR O DBT
-
-## CREATE DATABASE analytics_movie_insights;
