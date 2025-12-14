@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquitetura Zero-ETL AWS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #ff9900;
+            --secondary: #232f3e;
+            --accent: #146eb4;
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --text: #c9d1d9;
+            --text-light: #8b949e;
+            --border: #30363d;
+            --success: #238636;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--secondary) 0%, #1a252f 100%);
+            padding: 60px 0;
+            text-align: center;
+            border-bottom: 3px solid var(--primary);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        header h1 i {
+            color: var(--primary);
+            margin-right: 10px;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            max-width: 700px;
+            margin: 0 auto 25px;
+        }
+
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-aws { background: #ff9900; color: #000; }
+        .badge-terraform { background: #7b42bc; color: #fff; }
+        .badge-dbt { background: #ff694b; color: #fff; }
+        .badge-airflow { background: #017cee; color: #fff; }
+
+        /* Sections */
+        section {
+            padding: 60px 0;
+        }
+
+        section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        section h2 i {
+            color: var(--primary);
+        }
+
+        /* Architecture Diagram */
+        .architecture {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            margin: 30px 0;
+        }
+
+        .arch-title {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .arch-flow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .arch-box {
+            background: var(--secondary);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 25px;
+            text-align: center;
+            min-width: 120px;
+            transition: all 0.3s ease;
+        }
+
+        .arch-box:hover {
+            border-color: var(--primary);
+            transform: translateY(-3px);
+        }
+
+        .arch-box i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .arch-box.s3 i { color: #569a31; }
+        .arch-box.aurora i { color: #3b48cc; }
+        .arch-box.redshift i { color: #8c4fff; }
+        .arch-box.dbt i { color: #ff694b; }
+        .arch-box.airflow i { color: #017cee; }
+
+        .arch-box span {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .arch-box small {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.75rem;
+            margin-top: 5px;
+        }
+
+        .arch-arrow {
+            color: var(--primary);
+            font-size: 1.5rem;
+        }
+
+        /* Tech Grid */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .tech-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .tech-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-3px);
+        }
+
+        .tech-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tech-card h3 i {
+            color: var(--primary);
+        }
+
+        .tech-card p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* Steps */
+        .steps {
+            counter-reset: step;
+        }
+
+        .step {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 15px;
+            position: relative;
+            padding-left: 80px;
+        }
+
+        .step::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .step h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .step code {
+            background: var(--bg-dark);
+            padding: 10px 15px;
+            border-radius: 6px;
+            display: block;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: var(--primary);
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+
+        /* Data Flow */
+        .flow-list {
+            list-style: none;
+        }
+
+        .flow-list li {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .flow-list li i {
+            color: var(--success);
+            font-size: 1.2rem;
+        }
+
+        .flow-list li strong {
+            color: var(--primary);
+        }
+
+        /* Security */
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .security-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .security-item i {
+            color: var(--success);
+            font-size: 1.2rem;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--secondary);
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            color: var(--text-light);
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .github-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .github-btn:hover {
+            background: var(--primary);
+            color: #000;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .arch-flow { flex-direction: column; }
+            .arch-arrow { transform: rotate(90deg); }
+            .step { padding-left: 25px; padding-top: 60px; }
+            .step::before { top: 20px; left: 25px; transform: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fas fa-rocket"></i> Arquitetura Zero-ETL AWS</h1>
+            <p>Pipeline de dados moderno na AWS utilizando Zero-ETL para replicação em tempo real do Aurora PostgreSQL para Redshift, com transformações via dbt e orquestração com Airflow.</p>
+            <div class="badges">
+                <span class="badge badge-aws"><i class="fab fa-aws"></i> AWS</span>
+                <span class="badge badge-terraform"><i class="fas fa-cube"></i> Terraform</span>
+                <span class="badge badge-dbt"><i class="fas fa-database"></i> dbt</span>
+                <span class="badge badge-airflow"><i class="fas fa-wind"></i> Airflow</span>
+            </div>
+        </div>
+    </header>
+
+    <section>
+        <div class="container">
+            <h2><i class="fas fa-sitemap"></i> Arquitetura</h2>
+            
+            <div class="architecture">
+                <div class="arch-title">AWS Cloud</div>
+                <div class="arch-flow">
+                    <div class="arch-box s3">
+                        <i class="fas fa-bucket"></i>
+                        <span>S3</span>
+                        <small>Raw Data</small>
+                    </div>
+                    <i class="fas fa-arrow-right arch-arrow"></i>
+                    <div class="arch-box aurora">
+                        <i class="fas fa-database"></i>
+                        <span>Aurora</span>
+                        <small>PostgreSQL</small>
+                    </div>
+                    <i class="fas fa-arrow-right arch-arrow"></i>
+                    <div class="arch-box redshift">
+                        <i class="fas fa-warehouse"></i>
+                        <span>Redshift</span>
+                        <small>Zero-ETL</small>
+                    </div>
+                    <i class="fas fa-arrow-right arch-arrow"></i>
+                    <div class="arch-box dbt">
+                        <i class="fas fa-cogs"></i>
+                        <span>dbt</span>
+                        <small>Transform</small>
+                    </div>
+                    <i class="fas fa-arrow-right arch-arrow"></i>
+                    <div class="arch-box airflow">
+                        <i class="fas fa-clock"></i>
+                        <span>MWAA</span>
+                        <small>Airflow</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section style="background: var(--bg-card);">
+        <div class="container">
+            <h2><i class="fas fa-layer-group"></i> Tecnologias</h2>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <h3><i class="fas fa-database"></i> Aurora PostgreSQL</h3>
+                    <p>Banco de dados transacional de alta performance para dados de origem.</p>
+                </div>
+                <div class="tech-card">
+                    <h3><i class="fas fa-warehouse"></i> Amazon Redshift</h3>
+                    <p>Data Warehouse para armazenamento e análise de grandes volumes de dados.</p>
+                </div>
+                <div class="tech-card">
+                    <h3><i class="fas fa-sync"></i> Zero-ETL</h3>
+                    <p>Replicação em tempo real do Aurora para Redshift sem pipelines ETL.</p>
+                </div>
+                <div class="tech-card">
+                    <h3><i class="fas fa-cogs"></i> dbt</h3>
+                    <p>Transformação e modelagem de dados com SQL e versionamento.</p>
+                </div>
+                <div class="tech-card">
+                    <h3><i class="fas fa-wind"></i> MWAA (Airflow)</h3>
+                    <p>Orquestração de pipelines de dados gerenciado pela AWS.</p>
+                </div>
+                <div class="tech-card">
+                    <h3><i class="fas fa-cube"></i> Terraform</h3>
+                    <p>Infrastructure as Code para provisionamento automatizado.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <h2><i class="fas fa-play-circle"></i> Quick Start</h2>
+            <div class="steps">
+                <div class="step">
+                    <h3>Clone o repositório</h3>
+                    <code>git clone https://github.com/euvanessa-prado/arquitetura_zero_etl.git</code>
+                </div>
+                <div class="step">
+                    <h3>Crie o bucket para Terraform State</h3>
+                    <code>aws s3 mb s3://terraform-state-data-handson-mds-dev --region us-east-1</code>
+                </div>
+                <div class="step">
+                    <h3>Provisione a infraestrutura</h3>
+                    <code>cd terraform/infra && terraform init && terraform apply</code>
+                </div>
+                <div class="step">
+                    <h3>Carregue os dados</h3>
+                    <code>python code/insert_data_postgres/upload_to_s3.py</code>
+                </div>
+                <div class="step">
+                    <h3>Verifique a replicação</h3>
+                    <code>python code/insert_data_postgres/test_redshift_connection.py</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section style="background: var(--bg-card);">
+        <div class="container">
+            <h2><i class="fas fa-stream"></i> Fluxo de Dados</h2>
+            <ul class="flow-list">
+                <li><i class="fas fa-check-circle"></i> <strong>Ingestão:</strong> CSVs do MovieLens são enviados para o S3</li>
+                <li><i class="fas fa-check-circle"></i> <strong>Carga:</strong> Dados são inseridos no Aurora PostgreSQL</li>
+                <li><i class="fas fa-check-circle"></i> <strong>Replicação:</strong> Zero-ETL replica automaticamente para Redshift</li>
+                <li><i class="fas fa-check-circle"></i> <strong>Transformação:</strong> dbt cria modelos analíticos</li>
+                <li><i class="fas fa-check-circle"></i> <strong>Visualização:</strong> Metabase consome os dados transformados</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <h2><i class="fas fa-shield-alt"></i> Segurança</h2>
+            <div class="security-grid">
+                <div class="security-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Credenciais no AWS Secrets Manager</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>RDS/Redshift em subnets privadas</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Encryption em repouso</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Acesso via SSM (sem SSH exposto)</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Dados sensíveis removidos do código</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Security Groups restritivos</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>Desenvolvido com ☕ por <a href="https://github.com/euvanessa-prado">Vanessa Prado</a></p>
+            <a href="https://github.com/euvanessa-prado/arquitetura_zero_etl" class="github-btn">
+                <i class="fab fa-github"></i> Ver no GitHub
+            </a>
+        </div>
+    </footer>
+</body>
+</html>
