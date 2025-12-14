@@ -29,6 +29,36 @@ terraform/infra/
 └── scripts/             # Scripts de bootstrap
 ```
 
+## � Oardem de Provisionamento
+
+O Terraform cria os recursos automaticamente na ordem correta de dependência, mas é importante entender a sequência:
+
+```
+1. VPC + Subnets + Internet Gateway
+   ↓
+2. NAT Gateway + Route Tables
+   ↓
+3. Security Groups
+   ↓
+4. S3 Buckets (raw, scripts, curated, mwaa)
+   ↓
+5. IAM Roles + Policies
+   ↓
+6. Secrets Manager (credenciais)
+   ↓
+7. RDS Aurora PostgreSQL
+   ↓
+8. Redshift Cluster
+   ↓
+9. Zero-ETL Integration (manual no console)
+   ↓
+10. EC2 Instance
+   ↓
+11. MWAA (Airflow) - demora ~25 minutos
+```
+
+> ⚠️ **Importante**: A integração Zero-ETL deve ser criada **manualmente** no console AWS após o Aurora e Redshift estarem prontos.
+
 ## 🚀 Passo a Passo
 
 ### 1. Criar o bucket para Terraform State
