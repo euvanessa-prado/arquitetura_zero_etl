@@ -20,26 +20,18 @@ Utiliza o **MovieLens Dataset** com:
 
 ## 🏗️ Arquitetura
 
-```
-+------------------------------------------------------------------+
-|                          AWS Cloud                                |
-|                                                                   |
-|  +-------+     +----------+     +----------+     +-----+          |
-|  |  S3   | --> |  Aurora  | --> | Redshift | --> | dbt |          |
-|  | (Raw) |     |PostgreSQL|     | Zero-ETL |     |     |          |
-|  +-------+     +----------+     +----------+     +-----+          |
-|                                                     |             |
-|  +--------+                                         v             |
-|  |  MWAA  | <---------------------------------------+             |
-|  |Airflow |                                                       |
-|  +--------+                                                       |
-|                                                                   |
-|  +----------+     +-------+     +----------+                      |
-|  | Terraform|     |  EC2  |     | Metabase |                      |
-|  |   IaC   |     |  SSM  |     | Analytics|                       |
-|  +----------+     +-------+     +----------+                      |
-+------------------------------------------------------------------+
-```
+![Arquitetura Zero-ETL](docs/images/architecture-diagram.png)
+
+### Componentes Principais
+
+**Arquitetura Zero-ETL que replica dados automaticamente do Amazon Aurora para Amazon Redshift. Amazon MWAA orquestra transformações dbt, enquanto Data Engineers gerenciam pipelines e Analysts consomem insights via Metabase.**
+
+### Características Técnicas
+
+• **Zero-ETL Real-Time**: Aurora → Redshift sem latência  
+• **Infrastructure as Code**: Deploy automatizado via Terraform  
+• **Self-Service Analytics**: Dashboards interativos no Metabase  
+• **Cloud-Native Design**: Escalável, resiliente e cost-optimized
 
 ## 🛠️ Tecnologias
 
@@ -120,6 +112,28 @@ python code/insert_data_postgres/test_redshift_connection.py
 3. **Replicação**: Zero-ETL replica automaticamente para Redshift
 4. **Transformação**: dbt cria modelos analíticos
 5. **Visualização**: Metabase consome os dados transformados
+
+## 📈 Dashboard Analytics
+
+![Dashboard Metabase](docs/images/metabase-dashboard.png)
+
+### Insights Disponíveis
+
+O dashboard do Metabase apresenta análises completas do dataset MovieLens:
+
+- **📊 Popularidade por Gênero**: Distribuição de filmes por categoria
+- **⭐ Média Geral de Avaliações**: Score médio de 3.5/5.0 
+- **📈 Tendências Temporais**: Evolução das avaliações ao longo dos anos
+- **🎬 Top 10 Filmes**: Ranking dos filmes mais bem avaliados
+- **📊 Análise por Trimestre**: Padrões sazonais de avaliações
+- **🔍 Detalhamento por Gênero**: Insights específicos por categoria
+
+### Métricas Principais
+
+- **6.287** avaliações processadas
+- **Média de 3.5** estrelas por filme
+- **Análise temporal** de 1995 a 2018
+- **Distribuição por gênero** com foco em Drama, Comédia e Thriller
 
 ## 🔐 Segurança
 
